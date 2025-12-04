@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro de Frequência - EEMTI DRAGÃO DO MAR</title>
+    <!-- Carrega o Tailwind CSS para estilos modernos e responsivos -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Configuração da fonte Inter -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f1f5f9; /* Slate 100 */
+        }
+        /* Estilo para a caixa de mensagens/alerta (substitui alert()) */
+        #messageBox {
+            transition: opacity 0.3s ease-in-out;
+            pointer-events: none;
+        }
+        /* Estilo para a sobreposição de login */
+        #loginOverlay {
+            backdrop-filter: blur(5px);
+            background-color: rgba(0, 0, 0, 0.6);
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div id="messageBox" class="fixed top-5 right-5 z-50 p-4 rounded-lg shadow-xl text-white opacity-0" role="alert"></div>
+
+    <!-- Tela de Login Modal (Reutilizada) -->
+    <div id="loginOverlay" class="fixed inset-0 flex items-center justify-center hidden">
+        <div class="bg-white p-8 md:p-10 rounded-xl shadow-2xl max-w-sm w-full border-t-8 border-indigo-600">
+            <h2 class="text-2xl font-bold text-gray-800 mb-2">Acesso Restrito</h2>
+            <p class="text-gray-500 mb-6">Insira suas credenciais para continuar.</p>
+
+            <form id="loginForm">
+                <div class="mb-4">
+                    <label for="username" class="block text-sm font-medium text-gray-700">Usuário</label>
+                    <input type="text" id="username" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2.5 focus:border-indigo-500 focus:ring-indigo-500" value="MONTE">
+                </div>
+                <div class="mb-6">
+                    <label for="password" class="block text-sm font-medium text-gray-700">Senha</label>
+                    <input type="password" id="password" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2.5 focus:border-indigo-500 focus:ring-indigo-500" value="1234">
+                </div>
+                <button type="submit" class="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150">
+                    Entrar
+                </button>
+            </form>
+            <p id="loginError" class="text-red-500 text-sm mt-3 text-center hidden">Usuário ou senha inválidos.</p>
+        </div>
+    </div>
+    
+    <!-- Conteúdo Principal da Aplicação -->
+    <div id="appContainer" class="max-w-4xl mx-auto bg-white p-6 md:p-10 rounded-xl shadow-2xl">
+        <header class="mb-8 border-b pb-4">
+            <h1 class="text-3xl font-extrabold text-indigo-700">Sistema de Frequência de Eletivas - EEMTI DRAGÃO DO MAR</h1>
+            <p class="text-gray-500 mt-1">Gerencie cadastros, matrículas e registre a presença dos alunos.</p>
+            <div id="authStatus" class="text-sm text-gray-400 mt-2 flex justify-between items-center">
+                <span>Status de Autenticação: Desconectado</span>
+                <button id="logoutBtn" class="text-red-500 hover:text-red-700 text-sm font-medium hidden" onclick="logout()">Sair</button>
+            </div>
+        </header>
+
+        <!-- Navegação por Botões (Dashboard) -->
+        <div id="dashboard" class="mb-8 p-4 bg-gray-50 rounded-lg shadow-inner">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">Selecione uma ação:</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <button data-action="register" class="action-button bg-indigo-500 text-white p-4 rounded-lg shadow-md hover:bg-indigo-600 transition duration-150 font-semibold text-left border-b-4 border-indigo-700">
+                    1. Cadastro Inicial (Eletiva/Professor)
+                </button>
+                <button data-action="enrollment" class="action-button bg-teal-500 text-white p-4 rounded-lg shadow-md hover:bg-teal-600 transition duration-150 font-semibold text-left border-b-4 border-teal-700">
+                    2. Matrícula de Aluno
+                </button>
+                <button data-action="attendance" class="action-button bg-red-500 text-white p-4 rounded-lg shadow-md hover:bg-red-600 transition duration-150 font-semibold text-left border-b-4 border-red-700">
+                    3. Registro de Frequência
+                </button>
+                <button data-action="search" class="action-button bg-blue-500 text-white p-4 rounded-lg shadow-md hover:bg-blue-600 transition duration-150 font-semibold text-left border-b-4 border-blue-700">
+                    4. Busca de Frequência Anterior
+                </button>
+                <button data-action="map" class="action-button bg-purple-500 text-white p-4 rounded-lg shadow-md hover:bg-purple-600 transition duration-150 font-semibold text-left border-b-4 border-purple-700">
+                    5. Mapa de Eletivas e Relatório de Alunos
+                </button>
+            </div>
+        </div>
+
+        <!-- Conteúdo das Abas (Controlado pelos botões) -->
+        <div id="contentSections">
+            <!-- 1. Cadastro Inicial (Eletiva e Professor) -->
+            <div data-content="register" class="content-section p-6 border rounded-lg hidden">
+                <h2 class="text-2xl font-semibold text-gray-700 mb-4 border-b pb-2 text-indigo-700">1. Cadastro Inicial</h2>
+                <h3 class="text-xl font-medium mb-3">Cadastrar Eletiva</h3>
+                <form id="electiveForm" class="bg-indigo-50 p-6 rounded-lg mb-8 shadow-inner">
+                    <!-- Campos de Eletiva (mesmos de antes) -->
+                    <div class="mb-4">
+                        <label for="electiveName" class="block text-sm font-medium text-gray-700">Nome da Eletiva</label>
+                        <input type="text" id="electiveName" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2.5 focus:border-indigo-500 focus:ring-indigo-500">
+                    </div>
+                    <div class="mb-4">
+                        <label for="electiveCode" class="block text-sm font-medium text-gray-700">Código (Ex: ELET101)</label>
+                        <input type="text" id="electiveCode" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2.5 focus:border-indigo-500 focus:ring-indigo-500">
+                    </div>
+                    <button type="submit" class="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150">
+                        Cadastrar Eletiva
+                    </button>
+                </form>
+
+                <h3 class="text-xl font-medium mb-3">Cadastrar Professor</h3>
+                <form id="teacherForm" class="bg-green-50 p-6 rounded-lg shadow-inner">
+                    <!-- Campos de Professor (mesmos de antes) -->
+                    <div class="mb-4">
+                        <label for="teacherName" class="block text-sm font-medium text-gray-700">Nome do Professor(a)</label>
+                        <input type="text" id="teacherName" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2.5 focus:border-green-500 focus:ring-green-500">
+                    </div>
+                    <button type="submit" class="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-150">
+                        Cadastrar Professor
+                    </button>
+                </form>
+            </div>
+
+            <!-- 2. Matrícula de Aluno em Eletiva -->
+            <div data-content="enrollment" class="content-section p-6 border rounded-lg hidden">
+                <h2 class="text-2xl font-semibold text-gray-700 mb-4 border-b pb-2 text-teal-700">2. Matricular Aluno em Eletiva</h2>
+                <form id="enrollmentForm" class="bg-teal-50 p-6 rounded-lg shadow-inner mb-8">
+                    <!-- Campos de Matrícula (mesmos de antes) -->
+                    <div class="mb-4">
+                        <label for="enrollmentElective" class="block text-sm font-medium text-gray-700">Selecione a Eletiva</label>
+                        <select id="enrollmentElective" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2.5 focus:border-teal-500 focus:ring-teal-500 bg-white">
+                            <option value="" disabled selected>Carregando Eletivas...</option>
+                        </select>
+                    </div>
+                    <div class="mb-4">
+                        <label for="studentName" class="block text-sm font-medium text-gray-700">Nome Completo do Aluno</label>
+                        <input type="text" id="studentName" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2.5 focus:border-teal-500 focus:ring-teal-500">
+                    </div>
+                    <button type="submit" class="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition duration-150">
+                        Matricular Aluno
+                    </button>
+                </form>
+
+                <h3 class="text-xl font-semibold text-gray-700 mt-8 mb-4">Alunos Matriculados</h3>
+                <div id="enrollmentList" class="space-y-2">
+                    <p class="text-gray-500">Selecione uma eletiva acima para ver os alunos.</p>
+                </div>
+            </div>
+
+            <!-- 3. Registro de Frequência -->
+            <div data-content="attendance" class="content-section p-6 border rounded-lg hidden">
+                <h2 class="text-2xl font-semibold text-gray-700 mb-4 border-b pb-2 text-red-700">3. Registro de Frequência</h2>
+                <!-- Formulário de Seleção de Data/Eletiva (mesmo de antes) -->
+                <div class="bg-red-50 p-6 rounded-lg shadow-inner mb-6">
+                    <div class="flex flex-col md:flex-row gap-4 mb-4">
+                        <div class="flex-1">
+                            <label for="attendanceDate" class="block text-sm font-medium text-gray-700">Data da Aula</label>
+                            <input type="date" id="attendanceDate" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2.5 focus:border-red-500 focus:ring-red-500">
+                        </div>
+                        <div class="flex-1">
+                            <label for="attendanceElective" class="block text-sm font-medium text-gray-700">Selecione a Eletiva</label>
+                            <select id="attendanceElective" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2.5 focus:border-red-500 focus:ring-red-500 bg-white">
+                                <option value="" disabled selected>Carregando Eletivas...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button id="loadStudentsBtn" class="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150">
+                        Carregar Alunos
+                    </button>
+                </div>
+
+                <!-- Lista de Frequência (mesma de antes) -->
+                <div id="attendanceContainer" class="hidden">
+                    <h3 class="text-xl font-semibold text-gray-700 mb-4">Lista de Presença: <span id="currentElectiveName" class="text-red-600"></span> em <span id="currentAttendanceDate" class="text-red-600"></span></h3>
+                    <div class="bg-white border rounded-lg shadow overflow-hidden">
+                        <ul id="studentAttendanceList" class="divide-y divide-gray-200">
+                            <!-- Lista de alunos será inserida aqui -->
+                        </ul>
+                    </div>
+                    <div class="mt-6 flex justify-between items-center">
+                        <button id="toggleAllBtn" class="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition duration-150">
+                            Marcar Todos
+                        </button>
+                        <button id="saveAttendanceBtn" class="py-2 px-6 border border-transparent rounded-md shadow-lg text-lg font-bold text-white bg-red-700 hover:bg-red-800 focus:outline-none focus:ring-4 focus:ring-offset-2 focus:ring-red-500 transition duration-300 disabled:opacity-50" disabled>
+                            Salvar Frequência
+                        </button>
+                    </div>
+                </div>
+                <div id="attendanceHelp" class="p-4 text-center text-gray-500 mt-6 bg-gray-100 rounded-lg">
+                    Selecione a data e a eletiva acima e clique em "Carregar Alunos" para iniciar o registro.
+                </div>
+            </div>
+
+            <!-- 4. Busca de Frequência Anterior -->
+            <div data-content="search" class="content-section p-6 border rounded-lg hidden">
+                <h2 class="text-2xl font-semibold text-gray-700 mb-4 border-b pb-2 text-blue-700">4. Busca de Frequência Anterior</h2>
+                <div class="bg-blue-50 p-6 rounded-lg shadow-inner mb-6">
+                    <div class="mb-4">
+                        <label for="searchElective" class="block text-sm font-medium text-gray-700">Selecione a Eletiva</label>
+                        <select id="searchElective" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2.5 focus:border-blue-500 focus:ring-blue-500 bg-white">
+                            <option value="" disabled selected>Carregando Eletivas...</option>
+                        </select>
+                    </div>
+                    <div class="mb-4">
+                        <label for="searchDate" class="block text-sm font-medium text-gray-700">Data Específica (Opcional)</label>
+                        <input type="date" id="searchDate" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2.5 focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                    <button id="searchAttendanceBtn" class="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150">
+                        Buscar Frequência
+                    </button>
+                </div>
+
+                <div id="searchResults" class="mt-8">
+                    <h3 class="text-xl font-semibold text-gray-700 mb-4">Resultados:</h3>
+                    <p class="text-gray-500" id="searchHelp">Use o formulário acima para buscar os registros de frequência.</p>
+                    <div id="searchList" class="space-y-4">
+                        <!-- Resultados da busca serão inseridos aqui -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5. Mapa de Eletivas e Relatório de Alunos (NOVA SEÇÃO) -->
+            <div data-content="map" class="content-section p-6 border rounded-lg hidden">
+                <h2 class="text-2xl font-semibold text-gray-700 mb-4 border-b pb-2 text-purple-700">5. Mapa de Eletivas e Relatório de Alunos</h2>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Coluna 1: Mapa Geral de Professores -->
+                    <div class="lg:col-span-1 bg-purple-50 p-4 rounded-lg shadow-inner h-fit">
+                        <h3 class="text-xl font-semibold text-purple-700 mb-3">Professores Cadastrados</h3>
+                        <p class="text-sm text-gray-500 mb-3">Lista de todo o corpo docente para referência.</p>
+                        <ul id="professorList" class="space-y-2 text-sm">
+                            <li class="text-gray-500">Carregando professores...</li>
+                        </ul>
+                    </div>
+
+                    <!-- Coluna 2 e 3: Relatório de Eletivas e Matrículas -->
+                    <div class="lg:col-span-2">
+                        <div class="bg-white border rounded-lg p-4 shadow-md mb-6">
+                            <h3 class="text-xl font-semibold text-gray-700 mb-3">Selecione a Eletiva para Relatório</h3>
+                            <select id="mapElectiveSelect" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2.5 focus:border-purple-500 focus:ring-purple-500 bg-white">
+                                <option value="" disabled selected>Carregando Eletivas...</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Relatório de Alunos -->
+                        <div id="mapStudentReport" class="p-4 border rounded-lg bg-gray-50">
+                            <h4 class="text-lg font-bold text-gray-700 mb-3 border-b pb-2">Relatório de Alunos Matriculados: <span id="mapReportElectiveName" class="text-purple-600">Nenhuma Selecionada</span></h4>
+                            <div id="mapEnrollmentList" class="space-y-1">
+                                <p class="text-gray-500">Selecione uma eletiva acima.</p>
+                            </div>
+                            <p id="studentCount" class="text-sm font-medium mt-3 text-right text-gray-600 hidden"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+
+    </div>
+
+    <script type="module">
+        // Importa as funcionalidades necessárias do Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, addDoc, setDoc, onSnapshot, collection, query, where, getDocs, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- Configurações de Autenticação Local ---
+        const VALID_USER = 'MONTE';
+        const VALID_PASS = '1234';
+
+        // Configurações Globais do Canvas (OBRIGATÓRIO)
+        setLogLevel('Debug');
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let db;
+        let auth;
+        let userId = null;
+        let electiveData = []; // Armazena dados das eletivas
+        let professorData = []; // NOVO: Armazena dados dos professores
+        let studentAttendanceState = {}; // Armazena o estado atual da frequência
+        let currentElectiveId = null;
+        let currentDate = null;
+        let targetAction = null; // Ação a ser executada após o login
+
+        // --- Funções de UI e Feedback ---
+
+        function showMessage(message, type = 'success') {
+            const box = document.getElementById('messageBox');
+            box.textContent = message;
+            box.classList.remove('opacity-0', 'bg-green-500', 'bg-red-500', 'bg-blue-500', 'bg-purple-500');
+            box.classList.add('opacity-100', 
+                type === 'success' ? 'bg-green-500' : 
+                type === 'error' ? 'bg-red-500' : 
+                type === 'info' ? 'bg-blue-500' :
+                'bg-purple-500'
+            );
+
+            // Torna o box visível para receber clique
+            box.style.pointerEvents = 'auto';
+
+            setTimeout(() => {
+                box.classList.remove('opacity-100');
+                box.classList.add('opacity-0');
+                box.style.pointerEvents = 'none';
+            }, 3000);
+        }
+
+        // Função para formatar a data para exibição
+        function formatDate(dateString) {
+            if (!dateString) return 'Data não especificada';
+            const [year, month, day] = dateString.split('-');
+            return `${day}/${month}/${year}`;
+        }
+
+        // Função para obter o caminho da coleção privada do usuário
+        function getCollectionPath(collectionName) {
+            if (!userId) {
+                // Isso deve ser evitado pelo controle de acesso, mas é um fallback de segurança
+                console.error("Tentativa de acessar o Firestore sem userId.");
+                return `artifacts/${appId}/users/anonymous/${collectionName}`;
+            }
+            return `artifacts/${appId}/users/${userId}/${collectionName}`;
+        }
+
+        // --- Funções de Inicialização e Autenticação Firebase ---
+
+        async function initializeFirebase() {
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Tenta autenticar com o token customizado (se existir) ou anonimamente
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                // Ouve as mudanças de estado da autenticação (após o sign-in)
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        document.getElementById('authStatus').innerHTML = `<span>Status de Autenticação: Conectado (ID: ${userId.substring(0, 8)}...)</span><button id="logoutBtn" class="text-red-500 hover:text-red-700 text-sm font-medium" onclick="logout()">Sair</button>`;
+                        document.getElementById('logoutBtn').classList.remove('hidden');
+
+                        // Inicializa listeners de dados após a autenticação
+                        setupFirestoreListeners();
+                        // Preenche os selects iniciais
+                        populateElectiveSelects(electiveData);
+
+                    } else {
+                        document.getElementById('authStatus').innerHTML = '<span>Status de Autenticação: Desconectado</span>';
+                        document.getElementById('logoutBtn').classList.add('hidden');
+                        userId = null;
+                    }
+                });
+
+            } catch (error) {
+                console.error("Erro na inicialização do Firebase ou Autenticação:", error);
+                showMessage("Erro ao conectar ao banco de dados.", 'error');
+            }
+        }
+
+        function setupFirestoreListeners() {
+            if (!userId) return;
+
+            // 1. Listener para Eletivas
+            const qElectives = query(collection(db, getCollectionPath('eletivas')));
+            onSnapshot(qElectives, (snapshot) => {
+                electiveData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                populateElectiveSelects(electiveData);
+            }, (error) => {
+                console.error("Erro ao carregar eletivas:", error);
+            });
+
+            // 2. NOVO: Listener para Professores
+            const qProfessors = query(collection(db, getCollectionPath('professores')));
+            onSnapshot(qProfessors, (snapshot) => {
+                professorData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                // Se a seção Mapa estiver ativa, atualiza a lista de professores
+                if (document.querySelector('div[data-content="map"]:not(.hidden)')) {
+                    displayProfessorMap();
+                }
+            }, (error) => {
+                console.error("Erro ao carregar professores:", error);
+            });
+        }
+
+        window.logout = async () => {
+            try {
+                if (auth) {
+                    await signOut(auth);
+                }
+                sessionStorage.removeItem('isLoggedIn');
+                showMessage("Sessão encerrada com sucesso.", 'info');
+                location.reload(); // Recarrega para voltar à tela de dashboard inicial
+            } catch (error) {
+                console.error("Erro ao fazer logout:", error);
+                showMessage("Erro ao encerrar a sessão.", 'error');
+            }
+        }
+
+        // --- Funções de Navegação e Acesso ---
+
+        function showProtectedContent(action) {
+            // 1. Verifica se já está logado localmente
+            if (sessionStorage.getItem('isLoggedIn') === 'true' && userId) {
+                // Se já logado, mostra a seção
+                showContentSection(action);
+            } else {
+                // Se não logado, exibe o modal de login
+                targetAction = action;
+                document.getElementById('loginOverlay').classList.remove('hidden');
+            }
+        }
+
+        function showContentSection(action) {
+            const sections = document.querySelectorAll('.content-section');
+            sections.forEach(section => section.classList.add('hidden'));
+
+            const targetSection = document.querySelector(`div[data-content="${action}"]`);
+            if (targetSection) {
+                targetSection.classList.remove('hidden');
+            }
+
+            // Ações específicas ao mudar de seção
+            if (action === 'enrollment' && document.getElementById('enrollmentElective').value) {
+                 loadEnrollments(document.getElementById('enrollmentElective').value);
+            }
+            // NOVO: Ação para Mapa de Eletivas
+            if (action === 'map') {
+                displayProfessorMap();
+                // O listener do select abaixo cuidará do relatório de alunos
+                const mapSelect = document.getElementById('mapElectiveSelect');
+                if (mapSelect && mapSelect.value) {
+                    loadMapStudentReport(mapSelect.value);
+                } else {
+                     document.getElementById('mapEnrollmentList').innerHTML = '<p class="text-gray-500">Selecione uma eletiva para ver o relatório de alunos.</p>';
+                }
+            }
+        }
+        
+        // --- Funções de Login Local ---
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const usernameInput = document.getElementById('username').value.trim();
+            const passwordInput = document.getElementById('password').value.trim();
+            const errorBox = document.getElementById('loginError');
+            const overlay = document.getElementById('loginOverlay');
+
+            if (usernameInput === VALID_USER && passwordInput === VALID_PASS) {
+                // Login bem-sucedido
+                errorBox.classList.add('hidden');
+                
+                // Salva o estado na sessão
+                sessionStorage.setItem('isLoggedIn', 'true');
+
+                // Esconde o modal
+                overlay.classList.add('hidden');
+
+                // Redireciona para a ação pendente
+                if (targetAction) {
+                    showContentSection(targetAction);
+                }
+                showMessage("Acesso liberado. Bem-vindo(a), MONTE.", 'success');
+
+            } else {
+                // Login falhou
+                errorBox.classList.remove('hidden');
+                setTimeout(() => errorBox.classList.add('hidden'), 3000);
+            }
+        }
+
+        // --- Funções de Preenchimento de UI ---
+
+        function populateElectiveSelects(electives) {
+            // Inclui o novo select 'mapElectiveSelect'
+            const selects = ['enrollmentElective', 'attendanceElective', 'searchElective', 'mapElectiveSelect'];
+
+            selects.forEach(selectId => {
+                const select = document.getElementById(selectId);
+                if (select) {
+                    const selectedValue = select.value;
+                    select.innerHTML = '<option value="" disabled>Selecione uma Eletiva</option>';
+                    electives.sort((a, b) => a.name.localeCompare(b.name)).forEach(elective => {
+                        const option = document.createElement('option');
+                        option.value = elective.id;
+                        option.textContent = `${elective.name} (${elective.code})`;
+                        if (elective.id === selectedValue) {
+                            option.selected = true;
+                        }
+                        select.appendChild(option);
+                    });
+                    // Garante que pelo menos a primeira opção seja selecionada se nada estiver selecionado
+                    if (select.value === "" && select.options.length > 1) {
+                         select.options[1].selected = true;
+                    }
+                }
+            });
+            
+            // Adiciona listener para carregar matrículas na aba de matrícula
+            const enrollmentSelect = document.getElementById('enrollmentElective');
+            if(enrollmentSelect) enrollmentSelect.onchange = (e) => loadEnrollments(e.target.value);
+
+            // NOVO: Adiciona listener para carregar relatório de alunos no Mapa
+            const mapSelect = document.getElementById('mapElectiveSelect');
+            if(mapSelect) mapSelect.onchange = (e) => loadMapStudentReport(e.target.value);
+
+
+            // Define a data atual como padrão no seletor de frequência
+            document.getElementById('attendanceDate').valueAsDate = new Date();
+        }
+
+        // --- 1. Cadastro Inicial (Eletiva e Professor) ---
+        // (Lógica inalterada)
+        document.getElementById('electiveForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!userId) { showMessage("Usuário não autenticado no Firebase.", 'error'); return; }
+
+            const name = document.getElementById('electiveName').value.trim();
+            const code = document.getElementById('electiveCode').value.trim().toUpperCase();
+
+            if (!name || !code) {
+                showMessage("Preencha todos os campos da Eletiva.", 'error');
+                return;
+            }
+
+            try {
+                await addDoc(collection(db, getCollectionPath('eletivas')), {
+                    name: name,
+                    code: code,
+                    createdAt: new Date().toISOString()
+                });
+                showMessage(`Eletiva "${name}" cadastrada com sucesso!`, 'success');
+                document.getElementById('electiveForm').reset();
+            } catch (error) {
+                console.error("Erro ao adicionar eletiva:", error);
+                showMessage("Erro ao cadastrar eletiva.", 'error');
+            }
+        });
+
+        document.getElementById('teacherForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!userId) { showMessage("Usuário não autenticado no Firebase.", 'error'); return; }
+
+            const name = document.getElementById('teacherName').value.trim();
+
+            if (!name) {
+                showMessage("Preencha o nome do Professor.", 'error');
+                return;
+            }
+
+            try {
+                await addDoc(collection(db, getCollectionPath('professores')), {
+                    name: name,
+                    createdAt: new Date().toISOString()
+                });
+                showMessage(`Professor(a) "${name}" cadastrado(a) com sucesso!`, 'success');
+                document.getElementById('teacherForm').reset();
+            } catch (error) {
+                console.error("Erro ao adicionar professor:", error);
+                showMessage("Erro ao cadastrar professor.", 'error');
+            }
+        });
+
+        // --- 2. Matrícula de Aluno ---
+
+        async function loadEnrollments(electiveId) {
+            if (!userId) return;
+            const listElement = document.getElementById('enrollmentList');
+            listElement.innerHTML = '<p class="text-teal-600">Carregando matrículas...</p>';
+
+            try {
+                const q = query(collection(db, getCollectionPath('matriculas')), where('electiveId', '==', electiveId));
+                const snapshot = await getDocs(q);
+                const enrollments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                if (enrollments.length === 0) {
+                    listElement.innerHTML = '<p class="text-gray-500">Nenhum aluno matriculado nesta eletiva ainda.</p>';
+                    return;
+                }
+
+                listElement.innerHTML = enrollments.map(e => `
+                    <div class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm border border-teal-200">
+                        <span class="font-medium text-gray-700">${e.studentName}</span>
+                    </div>
+                `).join('');
+
+            } catch (error) {
+                console.error("Erro ao carregar matrículas:", error);
+                listElement.innerHTML = '<p class="text-red-500">Erro ao carregar matrículas.</p>';
+            }
+        }
+
+        document.getElementById('enrollmentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!userId) { showMessage("Usuário não autenticado no Firebase.", 'error'); return; }
+
+            const electiveId = document.getElementById('enrollmentElective').value;
+            const studentName = document.getElementById('studentName').value.trim();
+
+            if (!electiveId || !studentName) {
+                showMessage("Selecione a eletiva e preencha o nome do aluno.", 'error');
+                return;
+            }
+
+            try {
+                await addDoc(collection(db, getCollectionPath('matriculas')), {
+                    electiveId: electiveId,
+                    studentName: studentName,
+                    createdAt: new Date().toISOString()
+                });
+                showMessage(`Aluno(a) "${studentName}" matriculado(a) com sucesso!`, 'success');
+                document.getElementById('studentName').value = '';
+                loadEnrollments(electiveId); // Atualiza a lista
+            } catch (error) {
+                console.error("Erro ao matricular aluno:", error);
+                showMessage("Erro ao matricular aluno.", 'error');
+            }
+        });
+
+        // --- 3. Registro de Frequência ---
+
+        // Função para alternar o estado de um aluno (inalterada)
+        window.toggleStudentAttendance = (studentId) => {
+            const isPresent = document.querySelector(`li[data-student-id="${studentId}"] input[type="checkbox"]`).checked;
+            
+            // O enrollmentId é o studentId neste contexto (ID do documento na coleção 'matriculas')
+            const enrollmentId = studentId; 
+            
+            // Atualiza o estado da frequência (o item.docId é o ID do documento na coleção 'frequencias', se já existir)
+            studentAttendanceState[enrollmentId] = { 
+                ...studentAttendanceState[enrollmentId], 
+                studentId: enrollmentId, // Mantém o ID da matrícula como studentId
+                present: isPresent 
+            };
+
+            // Atualiza o visual do item na lista
+            const listItem = document.querySelector(`li[data-student-id="${enrollmentId}"]`);
+            const labelSpan = listItem.querySelector('label span');
+
+            if (listItem) {
+                listItem.classList.toggle('bg-red-100', !isPresent);
+                listItem.classList.toggle('bg-green-100', isPresent);
+            }
+            if (labelSpan) {
+                labelSpan.textContent = isPresent ? 'PRESENTE' : 'FALTA';
+            }
+
+            // Habilita o botão de salvar
+            document.getElementById('saveAttendanceBtn').disabled = false;
+        }
+
+
+        // Função principal para carregar alunos e estado de frequência (inalterada)
+        document.getElementById('loadStudentsBtn').addEventListener('click', async () => {
+            if (!userId) { showMessage("Usuário não autenticado no Firebase.", 'error'); return; }
+
+            currentDate = document.getElementById('attendanceDate').value;
+            currentElectiveId = document.getElementById('attendanceElective').value;
+
+            if (!currentDate || !currentElectiveId) {
+                showMessage("Por favor, selecione a data e a eletiva.", 'error');
+                return;
+            }
+
+            const elective = electiveData.find(e => e.id === currentElectiveId);
+            if (!elective) {
+                showMessage("Eletiva não encontrada.", 'error');
+                return;
+            }
+
+            document.getElementById('attendanceHelp').classList.add('hidden');
+            document.getElementById('attendanceContainer').classList.add('hidden');
+            document.getElementById('studentAttendanceList').innerHTML = '<li class="p-4 text-center text-blue-600">Carregando dados...</li>';
+            studentAttendanceState = {}; // Reseta o estado
+
+            // 1. Carregar Matrículas (usando ID da Matrícula como ID do aluno nesta eletiva)
+            const qEnrollments = query(collection(db, getCollectionPath('matriculas')), where('electiveId', '==', currentElectiveId));
+            const enrollmentSnapshot = await getDocs(qEnrollments);
+            const students = enrollmentSnapshot.docs.map(doc => ({
+                id: doc.id, // ID da Matrícula
+                name: doc.data().studentName,
+            }));
+
+            if (students.length === 0) {
+                document.getElementById('studentAttendanceList').innerHTML = '<li class="p-4 text-center text-gray-500">Nenhum aluno matriculado nesta eletiva.</li>';
+                document.getElementById('attendanceContainer').classList.remove('hidden');
+                document.getElementById('saveAttendanceBtn').disabled = true;
+                return;
+            }
+
+            // 2. Carregar Frequência Existente para Data e Eletiva
+            const attendancePath = getCollectionPath('frequencias');
+            const qAttendance = query(
+                collection(db, attendancePath),
+                where('electiveId', '==', currentElectiveId),
+                where('date', '==', currentDate)
+            );
+            const attendanceSnapshot = await getDocs(qAttendance);
+            const existingAttendance = {};
+            attendanceSnapshot.docs.forEach(doc => {
+                const data = doc.data();
+                // Usa o studentId (que é o ID da Matrícula) como chave
+                existingAttendance[data.studentId] = {
+                    docId: doc.id, // ID do documento na coleção 'frequencias'
+                    present: data.present
+                };
+            });
+
+            // 3. Montar a Lista de Frequência e o Estado Inicial
+            let htmlList = '';
+            students.sort((a, b) => a.name.localeCompare(b.name)).forEach(student => {
+                const enrollmentId = student.id; // ID da Matrícula
+                const isPresent = existingAttendance[enrollmentId] ? existingAttendance[enrollmentId].present : true; // Padrão: Presente
+                const bgColor = isPresent ? 'bg-green-100' : 'bg-red-100';
+                const statusText = isPresent ? 'PRESENTE' : 'FALTA';
+
+                // Preenche o estado inicial
+                studentAttendanceState[enrollmentId] = {
+                    studentId: enrollmentId,
+                    docId: existingAttendance[enrollmentId]?.docId || null,
+                    present: isPresent
+                };
+
+                htmlList += `
+                    <li data-student-id="${enrollmentId}" class="p-4 flex justify-between items-center transition duration-200 ${bgColor}">
+                        <span class="text-base text-gray-800 font-medium">${student.name}</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" value="" class="sr-only peer" ${isPresent ? 'checked' : ''} onchange="toggleStudentAttendance('${enrollmentId}')">
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 dark:peer-focus:ring-red-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-red-600"></div>
+                            <span class="ms-3 text-sm font-medium text-gray-700 select-none">${statusText}</span>
+                        </label>
+                    </li>
+                `;
+            });
+
+            document.getElementById('studentAttendanceList').innerHTML = htmlList;
+            document.getElementById('currentElectiveName').textContent = elective.name;
+            document.getElementById('currentAttendanceDate').textContent = formatDate(currentDate);
+            document.getElementById('attendanceContainer').classList.remove('hidden');
+            document.getElementById('saveAttendanceBtn').disabled = true; // Desabilita até que haja uma mudança
+        });
+
+        // Função para Salvar a Frequência (inalterada)
+        document.getElementById('saveAttendanceBtn').addEventListener('click', async () => {
+            if (!userId || !currentElectiveId || !currentDate) {
+                showMessage("Dados inválidos para salvar a frequência.", 'error');
+                return;
+            }
+
+            document.getElementById('saveAttendanceBtn').disabled = true;
+            document.getElementById('saveAttendanceBtn').textContent = 'Salvando...';
+
+            const updates = Object.values(studentAttendanceState);
+            const attendanceCollection = collection(db, getCollectionPath('frequencias'));
+            let successCount = 0;
+            let errorOccurred = false;
+
+            for (const item of updates) {
+                const dataToSave = {
+                    electiveId: currentElectiveId,
+                    date: currentDate,
+                    studentId: item.studentId, // ID da Matrícula
+                    present: item.present,
+                    updatedAt: new Date().toISOString()
+                };
+
+                try {
+                    if (item.docId) {
+                        // Atualiza registro existente
+                        const docRef = doc(db, attendanceCollection.path, item.docId);
+                        await setDoc(docRef, dataToSave, { merge: true });
+                    } else {
+                        // Cria novo registro (o ID do documento será gerado pelo Firestore)
+                        await addDoc(attendanceCollection, dataToSave);
+                    }
+                    successCount++;
+                } catch (error) {
+                    console.error("Erro ao salvar frequência para o aluno", item.studentId, ":", error);
+                    errorOccurred = true;
+                }
+            }
+
+            document.getElementById('saveAttendanceBtn').textContent = 'Salvar Frequência';
+
+            if (errorOccurred) {
+                showMessage(`Frequência salva com erros. ${successCount} registros salvos.`, 'error');
+            } else {
+                showMessage("Frequência salva com sucesso!", 'success');
+            }
+
+            // Recarrega o estado para atualizar os IDs dos documentos recém-criados
+            document.getElementById('loadStudentsBtn').click();
+        });
+
+
+        // Alternar todos os toogles (inalterada)
+        document.getElementById('toggleAllBtn').addEventListener('click', () => {
+            const listItems = document.querySelectorAll('#studentAttendanceList input[type="checkbox"]');
+            const isAllPresent = Array.from(listItems).every(input => input.checked);
+            const shouldMarkAllPresent = !isAllPresent; // Inverte o estado atual para marcar todos
+
+            listItems.forEach(input => {
+                // Só muda se o estado for diferente do desejado
+                if (input.checked !== shouldMarkAllPresent) {
+                    input.checked = shouldMarkAllPresent;
+                    // Dispara a função de toggle para atualizar o estado interno e o visual
+                    input.dispatchEvent(new Event('change'));
+                }
+            });
+            document.getElementById('toggleAllBtn').textContent = shouldMarkAllPresent ? 'Marcar Todos como FALTA' : 'Marcar Todos como PRESENTE';
+        });
+
+        // --- 4. Busca de Frequência Anterior (inalterada) ---
+
+        document.getElementById('searchAttendanceBtn').addEventListener('click', async () => {
+            if (!userId) { showMessage("Usuário não autenticado no Firebase.", 'error'); return; }
+
+            const electiveId = document.getElementById('searchElective').value;
+            const date = document.getElementById('searchDate').value;
+            const searchList = document.getElementById('searchList');
+            const searchHelp = document.getElementById('searchHelp');
+
+            if (!electiveId) {
+                showMessage("Por favor, selecione a Eletiva.", 'error');
+                return;
+            }
+
+            searchHelp.textContent = 'Buscando registros...';
+            searchList.innerHTML = '';
+            
+            try {
+                // 1. Carregar matrículas para mapear ID -> Nome do Aluno
+                const qEnrollments = query(collection(db, getCollectionPath('matriculas')), where('electiveId', '==', electiveId));
+                const enrollmentSnapshot = await getDocs(qEnrollments);
+                const studentMap = {};
+                enrollmentSnapshot.docs.forEach(doc => {
+                    studentMap[doc.id] = doc.data().studentName;
+                });
+
+                // 2. Montar a query de frequência
+                const attendanceCollection = collection(db, getCollectionPath('frequencias'));
+                let qAttendance;
+                
+                if (date) {
+                    // Busca por data específica
+                    qAttendance = query(attendanceCollection, where('electiveId', '==', electiveId), where('date', '==', date));
+                } else {
+                    // Busca todos os registros da eletiva
+                    qAttendance = query(attendanceCollection, where('electiveId', '==', electiveId));
+                }
+                
+                const attendanceSnapshot = await getDocs(qAttendance);
+                const results = {}; // Agrupa os resultados por data
+
+                attendanceSnapshot.docs.forEach(doc => {
+                    const data = doc.data();
+                    const studentName = studentMap[data.studentId] || 'Aluno Desconhecido';
+
+                    if (!results[data.date]) {
+                        results[data.date] = [];
+                    }
+
+                    results[data.date].push({
+                        name: studentName,
+                        present: data.present
+                    });
+                });
+
+                // 3. Renderizar resultados
+                const dates = Object.keys(results).sort().reverse();
+                
+                if (dates.length === 0) {
+                    searchHelp.textContent = 'Nenhum registro de frequência encontrado para esta eletiva.';
+                    return;
+                }
+
+                let htmlContent = '';
+                dates.forEach(d => {
+                    const dateResults = results[d].sort((a, b) => a.name.localeCompare(b.name));
+                    
+                    htmlContent += `
+                        <div class="border border-blue-200 rounded-lg p-4 bg-white shadow-md">
+                            <h4 class="font-bold text-lg mb-3 border-b pb-1 text-blue-800">Data: ${formatDate(d)}</h4>
+                            <ul class="space-y-1">
+                                ${dateResults.map(r => `
+                                    <li class="flex justify-between text-sm p-1 rounded ${r.present ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}">
+                                        <span>${r.name}</span>
+                                        <span class="font-medium">${r.present ? 'PRESENTE' : 'FALTA'}</span>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                    `;
+                });
+
+                searchList.innerHTML = htmlContent;
+                searchHelp.textContent = `Busca concluída. ${dates.length} registros de frequência encontrados.`;
+
+            } catch (error) {
+                console.error("Erro na busca de frequência:", error);
+                searchHelp.textContent = 'Ocorreu um erro ao buscar os dados de frequência.';
+            }
+        });
+
+
+        // --- 5. Mapa de Eletivas e Relatório de Alunos (NOVAS FUNÇÕES) ---
+
+        function displayProfessorMap() {
+            const listElement = document.getElementById('professorList');
+            if (professorData.length === 0) {
+                listElement.innerHTML = '<li class="text-gray-500">Nenhum professor cadastrado.</li>';
+                return;
+            }
+
+            professorData.sort((a, b) => a.name.localeCompare(b.name));
+            listElement.innerHTML = professorData.map(p => `
+                <li class="bg-white p-2 rounded-md shadow-sm border border-purple-200 flex justify-between items-center">
+                    <span class="font-medium text-gray-700">${p.name}</span>
+                    <span class="text-xs text-purple-500">Docente</span>
+                </li>
+            `).join('');
+        }
+
+        async function loadMapStudentReport(electiveId) {
+            if (!userId) return;
+
+            const listElement = document.getElementById('mapEnrollmentList');
+            const nameElement = document.getElementById('mapReportElectiveName');
+            const countElement = document.getElementById('studentCount');
+            
+            const elective = electiveData.find(e => e.id === electiveId);
+
+            nameElement.textContent = elective ? `${elective.name} (${elective.code})` : 'Eletiva Inválida';
+            listElement.innerHTML = '<p class="text-purple-600">Carregando relatório de alunos...</p>';
+            countElement.classList.add('hidden');
+
+            if (!elective) return;
+
+            try {
+                const q = query(collection(db, getCollectionPath('matriculas')), where('electiveId', '==', electiveId));
+                const snapshot = await getDocs(q);
+                const enrollments = snapshot.docs.map(doc => ({ ...doc.data() }));
+
+                enrollments.sort((a, b) => a.studentName.localeCompare(b.studentName));
+                
+                if (enrollments.length === 0) {
+                    listElement.innerHTML = '<p class="text-gray-500">Nenhum aluno matriculado nesta eletiva.</p>';
+                } else {
+                    listElement.innerHTML = enrollments.map(e => `
+                        <div class="flex justify-between items-center bg-white p-2 rounded-md shadow-sm border border-gray-200 hover:bg-purple-50 transition duration-100">
+                            <span class="text-sm text-gray-700">${e.studentName}</span>
+                        </div>
+                    `).join('');
+                    
+                    countElement.textContent = `Total de Alunos: ${enrollments.length}`;
+                    countElement.classList.remove('hidden');
+                }
+
+            } catch (error) {
+                console.error("Erro ao carregar relatório de alunos:", error);
+                listElement.innerHTML = '<p class="text-red-500">Erro ao carregar o relatório.</p>';
+            }
+        }
+
+
+        // --- Inicialização Principal ---
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('loginForm').addEventListener('submit', handleLogin);
+            
+            // Adiciona listeners aos botões do Dashboard
+            document.querySelectorAll('.action-button').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const action = e.currentTarget.getAttribute('data-action');
+                    showProtectedContent(action);
+                });
+            });
+
+            // Tenta inicializar o Firebase (para pegar o ID do usuário, mesmo que anônimo)
+            initializeFirebase();
+
+            // Verifica o estado de login salvo para manter a sessão
+            if (sessionStorage.getItem('isLoggedIn') === 'true') {
+                // Se estiver logado, não precisa de login modal, mas precisa garantir que o Firebase está pronto.
+                // A inicialização do Firebase acima cuidará do `userId` e `setupFirestoreListeners`.
+            }
+            
+        });
+
+    </script>
+</body>
+</html>
